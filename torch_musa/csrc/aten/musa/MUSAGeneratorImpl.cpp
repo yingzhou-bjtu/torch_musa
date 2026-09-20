@@ -1,6 +1,7 @@
 #include <ATen/Utils.h>
 #include <ATen/core/GeneratorForPrivateuseone.h>
 #include <ATen/ops/empty.h>
+#include <c10/core/InferenceMode.h>
 #include <c10/core/StreamGuard.h>
 #include <c10/util/CallOnce.h>
 
@@ -143,6 +144,12 @@ void MUSAGeneratorState::register_graph(musa::MUSAGraph* graph) {
   // and offset on the GPU.
   if (registered_graphs_.empty()) {
     auto options = at::TensorOptions().device(at::kMUSA).dtype(at::kLong);
+    // Create these tensors outside of inference mode to ensure they can be
+    // modified in-place later. If we create them as inference tensors,
+    // subsequent fill_() calls outside inference mode
+    // will fail with "Inplace update to inference tensor outside
+    // InferenceMode".
+    c10::InferenceMode guard(false);
     seed_extragraph_ = at::empty({1}, options);
     offset_extragraph_ = at::empty({1}, options);
   }
