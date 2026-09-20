@@ -167,3 +167,25 @@ def test_mgc_same_pool_explicit():
 
     assert testing.DefaultComparator(add_result.cpu(), torch.full_like(x.cpu(), 3))
     assert testing.DefaultComparator(mul_result.cpu(), torch.full_like(y.cpu(), 6))
+
+
+@testing.test_on_nonzero_card_if_multiple_musa_device(1)
+def test_second_capture_begin_after_inference_mode():
+    static = torch.ones(4, device=DEVICE)
+
+    first = torch.musa.MUSAGraph()
+    with torch.inference_mode():
+        with torch.musa.graph(first):
+            static.add_(1)
+    first.replay()
+    torch.musa.synchronize()
+    assert testing.DefaultComparator(static.cpu(), torch.full((4,), 3.0))
+
+    second = torch.musa.MUSAGraph()
+    static.fill_(1)
+    with torch.no_grad():
+        with torch.musa.graph(second):
+            static.mul_(3)
+    second.replay()
+    torch.musa.synchronize()
+    assert testing.DefaultComparator(static.cpu(), torch.full((4,), 9.0))
