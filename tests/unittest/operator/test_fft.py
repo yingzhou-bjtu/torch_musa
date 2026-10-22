@@ -71,3 +71,22 @@ def test_irfft(dtype, norm, input_data):
     musa_out = torch.fft.irfft(musa_input, n=cpu_input.shape[-1], norm=norm).cpu()
 
     assert torch.allclose(ref, musa_out, atol=1e-4, rtol=1e-4)
+
+
+def test_irfft_graph_capture():
+    """MUSA irfft must remain valid when the caller captures a graph."""
+    n = 16
+    freq = torch.randn(2, n // 2 + 1, 4, device="musa", dtype=torch.complex64)
+    expected = torch.fft.irfft(freq, n=n, dim=1)
+
+    for _ in range(3):
+        torch.fft.irfft(freq, n=n, dim=1)
+    torch.musa.synchronize()
+
+    graph = torch.musa.MUSAGraph()
+    with torch.musa.graph(graph):
+        output = torch.fft.irfft(freq, n=n, dim=1)
+    graph.replay()
+    torch.musa.synchronize()
+
+    torch.testing.assert_close(output, expected)
