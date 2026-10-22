@@ -780,15 +780,8 @@ Tensor _fft_c2r_musa(
       self.options().dtype(c10::toRealValueType(self.scalar_type())));
 
   if (use_optimized_mufft_path(dim)) {
-    Tensor temp;
-    // Complex to real FFTs may overwrite the input buffer, so must always clone
-    // (gh-34551)
-    /*
-    TODO: temp = self.clone(MemoryFormat::Contiguous);
-          MUSA does not support writing complex tensors (out) for this
-    operation.
-    */
-    temp = self.cpu().clone().to(self.device());
+    // Complex to real FFTs may overwrite the input buffer, so must always clone.
+    auto temp = self.clone(at::MemoryFormat::Contiguous);
     _exec_fft(output, temp, out_sizes, dim, /*forward=*/false);
   } else {
     // First complete any C2C transforms
